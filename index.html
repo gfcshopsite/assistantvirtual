@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente Virtuale Reattivo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #chat-container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            height: 400px;
+            overflow-y: scroll;
+            margin-bottom: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e1f5fe;
+            text-align: right;
+        }
+        .assistant-message {
+            background-color: #f0f4c3;
+        }
+        #status {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        #input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #mute-button {
+            background-color: #f44336;
+        }
+        #mute-button:hover {
+            background-color: #d32f2f;
+        }
+        #mute-button.muted {
+            background-color: #9e9e9e;
+        }
+    </style>
+</head>
+<body>
+    <h1>Assistente Virtuale Reattivo</h1>
+    <div id="status">Pronto</div>
+    <div id="chat-container"></div>
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="Scrivi qui la tua domanda...">
+        <button id="send-button">Invia</button>
+    </div>
+    <button id="mute-button">Muta</button>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const muteButton = document.getElementById('mute-button');
+        const statusDiv = document.getElementById('status');
+        let isMuted = false;
+
+        // Verifica se il riconoscimento vocale è supportato
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'it-IT';
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            recognition.onresult = (event) => {
+                const userMessage = event.results[event.results.length - 1][0].transcript;
+                processUserInput(userMessage);
+            };
+
+            recognition.onend = () => {
+                recognition.start();
+                statusDiv.textContent = "In ascolto...";
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Errore nel riconoscimento vocale:', event.error);
+                statusDiv.textContent = "Errore nel riconoscimento vocale. Riavvio...";
+                setTimeout(() => recognition.start(), 1000);
+            };
+
+            // Avvia il riconoscimento vocale
+            recognition.start();
+        } else {
+            statusDiv.textContent = "Riconoscimento vocale non supportato. Usa l'input testuale.";
+        }
+
+        function addMessage(sender, message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', sender === 'Utente' ? 'user-message' : 'assistant-message');
+            messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function getAssistantResponse(userMessage) {
+            const lowercaseMessage = userMessage.toLowerCase();
+            
+            if (lowercaseMessage.includes("che ore sono")) {
+                return `Sono le ${new Date().toLocaleTimeString('it-IT')}.`;
+            }
+
+            if (lowercaseMessage.includes("che giorno è")) {
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                return `Oggi è ${new Date().toLocaleDateString('it-IT', options)}.`;
+            }
+
+            if (lowercaseMessage.includes("ciao") || lowercaseMessage.includes("salve")) {
+                return "Ciao! Come posso aiutarti oggi?";
+            }
+
+            if (lowercaseMessage.includes("come stai")) {
+                return "Sto bene, grazie! Sono qui per assisterti. Come posso esserti utile?";
+            }
+
+            if (lowercaseMessage.includes("chi sei")) {
+                return "Sono un assistente virtuale creato per aiutarti con varie domande e compiti. Cosa vorresti sapere?";
+            }
+
+            if (lowercaseMessage.includes("grazie")) {
+                return "Prego! Sono felice di poterti aiutare. C'è altro di cui hai bisogno?";
+            }
+
+            if (lowercaseMessage.includes("arrivederci") || lowercaseMessage.includes("ciao")) {
+                return "Arrivederci! È stato un piacere assisterti. Torna pure quando vuoi!";
+            }
+
+            return `Mi dispiace, non ho una risposta specifica per "${userMessage}". Posso aiutarti con l'ora, la data, o altre informazioni generali. Cosa vorresti sapere?`;
+        }
+
+        function speakMessage(message) {
+            if (!isMuted && 'speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(message);
+                utterance.lang = 'it-IT';
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        function processUserInput(userMessage) {
+            addMessage('Utente', userMessage);
+            const assistantResponse = getAssistantResponse(userMessage);
+            addMessage('Assistente', assistantResponse);
+            speakMessage(assistantResponse);
+        }
+
+        sendButton.addEventListener('click', () => {
+            const userMessage = userInput.value.trim();
+            if (userMessage) {
+                processUserInput(userMessage);
+                userInput.value = '';
+            }
+        });
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendButton.click();
+            }
+        });
+
+        muteButton.addEventListener('click', () => {
+            isMuted = !isMuted;
+            muteButton.textContent = isMuted ? 'Riattiva Audio' : 'Muta';
+            muteButton.classList.toggle('muted');
+        });
+
+        // Messaggio di benvenuto
+        addMessage('Assistente', 'Ciao! Sono il tuo assistente virtuale reattivo. Posso aiutarti con informazioni come l\'ora, la data e altro. Prova a chiedermi "Che ore sono?" o "Che giorno è oggi?"');
+        speakMessage('Ciao! Sono il tuo assistente virtuale reattivo. Posso aiutarti con informazioni come l\'ora, la data e altro. Prova a chiedermi "Che ore sono?" o "Che giorno è oggi?"');
+    </script>
+</body>
+</html>
